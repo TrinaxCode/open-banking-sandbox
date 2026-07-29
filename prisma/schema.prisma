@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  name              String?
+  passwordHash      String
+  accountNumber     String          @unique
+  passwordChangedAt DateTime?
+  notifyLowBalance  Boolean         @default(true)
+  notifyLargeTx     Boolean         @default(true)
+  lowBalanceThreshold Float         @default(100)
+  largeTxThreshold  Float           @default(1000)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  accounts          Account[]
+  transactions      Transaction[]
+  virtualCards      VirtualCard[]
+  beneficiaries     Beneficiary[]
+  savingsGoals      SavingsGoal[]
+  recurringTransfers RecurringTransfer[]
+  notifications     Notification[]
+}
+
+model Beneficiary {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  accountNumber String
+  nickname      String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountNumber])
+}
+
+model SavingsGoal {
+  id            String   @id @default(cuid())
+  userId        String
+  accountId     String
+  name          String
+  targetAmount  Float
+  currentAmount Float    @default(0)
+  color         String   @default("emerald")
+  deadline      DateTime?
+  achievedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model RecurringTransfer {
+  id                  String   @id @default(cuid())
+  userId              String
+  fromAccountId       String
+  targetAccountNumber String
+  amount              Float
+  frequency           String   // "daily" | "weekly" | "monthly"
+  description         String?
+  nextRunAt           DateTime
+  lastRunAt           DateTime?
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccount         Account  @relation(fields: [fromAccountId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "low_balance" | "large_tx" | "scheduled" | "goal" | "info"
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+// ... Account model above ...
+
+model VirtualCard {
+  id         String   @id @default(cuid())
+  userId     String
+  cardNumber String   @unique
+  cardHolder String
+  expiryDate String   // MM/YY format
+  cvv        String
+  isFrozen   Boolean  @default(false)
+  isTemporary Boolean @default(false)
+  expiresAt  DateTime?
+  maxUses    Int?
+  usageCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id            String        @id @default(cuid())
+  userId        String
+  type          String        @default("checking")
+  number        String        @unique
+  nickname      String?       // User-friendly name for the account
+  balance       Float         @default(0)
+  creditLimit   Float?        // Only for credit accounts
+  interestRate  Float?        // Annual interest rate % for credit
+  dueDate       String?       // Day of month for payment due date (e.g. "15")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  Transaction[] @relation("account_transactions")
+  targetOfTrans Transaction[] @relation("target_account_transactions")
+  savingsGoals      SavingsGoal[]
+  recurringTransfers RecurringTransfer[]
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  userId          String
+  accountId       String?
+  targetAccountId String?
+  type            String   // "deposit" | "withdrawal" | "transfer_in" | "transfer_out"
+  amount          Float
+  description     String?
+  reference       String?
+  category        String   @default("other") // spending category
+  status          String   @default("completed") // "completed" | "pending" | "failed"
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account         Account? @relation("account_transactions", fields: [accountId], references: [id], onDelete: SetNull)
+  targetAccount   Account? @relation("target_account_transactions", fields: [targetAccountId], references: [id], onDelete: SetNull)
+}

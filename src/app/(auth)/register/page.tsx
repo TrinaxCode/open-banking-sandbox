@@ -1,0 +1,78 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { RegisterForm } from "@/components/auth/RegisterForm";
+import { LanguageSwitcher, useT } from "@/components/ui/LanguageSwitcher";
+
+export default function RegisterPage() {
+  const { t } = useT();
+
+  return (
+    <main className="relative flex min-h-screen bg-[#0a0a0a]">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-0 h-[900px] w-[900px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-gradient-to-b from-primary-500/10 via-primary-500/5 to-transparent blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] rounded-full bg-premium-gold/5 blur-3xl" />
+      </div>
+
+      {/* Top-right: Language switcher + GitHub */}
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-3">
+        <a
+          href="https://github.com/TrinaxCode"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-1.5 text-white/20 hover:text-primary-400 transition-all duration-300 hover:scale-105"
+          aria-label="GitHub"
+        >
+          <svg className="h-5 w-5 group-hover:text-primary-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          <span className="text-[11px] font-medium group-hover:text-primary-400 transition-colors">@TrinaxCode</span>
+        </a>
+        <LanguageSwitcher />
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[420px] flex-col items-center justify-center px-6">
+        <div className="w-full animate-fade-in">
+          <div className="mb-8 flex justify-center">
+            <Image
+              src="/logo.webp"
+              alt="Trinax Bank"
+              width={100}
+              height={100}
+              className="rounded-2xl"
+              priority
+            />
+          </div>
+          <h1 className="mb-1 text-center text-2xl font-semibold tracking-tight text-white">
+            {t("auth.create")}
+          </h1>
+          <p className="mb-7 text-center text-sm text-white/30">
+            {t("auth.start")}
+          </p>
+
+          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-8 backdrop-blur-xl">
+            <RegisterForm />
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-white/30">
+              {t("auth.hasAccount")}{" "}
+              <Link href="/login" className="font-medium text-primary-400 transition-colors hover:text-primary-300">
+                {t("auth.signInLink")}
+              </Link>
+            </p>
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link href="/terms" className="text-xs text-white/[0.12] transition-colors hover:text-white/30">
+              {t("common.terms")}
+            </Link>
+            <span className="mx-3 text-xs text-white/[0.08]">&middot;</span>
+            <span className="text-xs text-white/[0.12]">&copy; {new Date().getFullYear()} Trinax Bank</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

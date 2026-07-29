@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-white/[0.06];
+  }
+
+  body {
+    @apply bg-[#0a0a0a] text-gray-200 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "cv05";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    @apply bg-primary-500/20 text-white;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/[0.08] hover:bg-white/[0.15] transition-colors duration-300;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent iOS Safari zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.03] backdrop-blur-2xl border border-white/[0.06] shadow-glass;
+  }
+
+  .glass-hover {
+    @apply hover:bg-white/[0.05] transition-all duration-300;
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:bg-white/[0.05] hover:border-white/[0.1] hover:shadow-glow;
+  }
+
+  .gradient-primary {
+    @apply bg-gradient-to-br from-primary-500 to-primary-600;
+  }
+
+  .gradient-accent {
+    @apply bg-gradient-to-br from-primary-500 to-premium-green;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-premium-gold;
+  }
+
+  .input-premium {
+    @apply w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3
+           text-sm text-white placeholder:text-white/25
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500/40
+           transition-all duration-300;
+  }
+
+  .nav-link {
+    @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium
+           text-white/50 transition-all duration-200
+           hover:text-white hover:bg-white/[0.04];
+  }
+
+  .nav-link-active {
+    @apply text-white bg-white/[0.06] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2
+           before:h-5 before:w-0.5 before:rounded-full before:bg-primary-400;
+  }
+
+  .premium-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.06) transparent;
+  }
+}

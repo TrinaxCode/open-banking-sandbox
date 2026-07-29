@@ -1,0 +1,61 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+/test-results
+/playwright-report
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma
+/prisma/*.db*
+prisma/dev.db
+prisma/dev.db-journal
+
+# aider
+.aider*
+
+# local prompts and tooling output
+.github/prompts/
+.claude/
+.eslintcache
+
+# source-only brand exports
+trinax bank logo/
+
+# prisma test databases
+prisma/test-*.db
+prisma/test-*.db-shm
+prisma/test-*.db-wal
+prisma/test.db
+prisma/test.db-shm
+prisma/test.db-wal
