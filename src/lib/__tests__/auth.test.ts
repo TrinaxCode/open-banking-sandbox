@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { authOptions } from "@/lib/auth";
 
 describe("authOptions", () => {
   it("should have credentials provider", () => {
     expect(authOptions.providers).toHaveLength(1);
-    expect(authOptions.providers[0].id).toBe("credentials");
+    expect(authOptions.providers[0]!.id).toBe("credentials");
   });
 
   it("should use JWT session strategy", () => {
@@ -23,37 +23,39 @@ describe("authOptions", () => {
     expect(authOptions.jwt?.maxAge).toBe(24 * 60 * 60);
   });
 
-  it("should configure secure cookies based on NODE_ENV", () => {
-    const cookieOptions = authOptions.cookies?.sessionToken?.options;
-    expect(cookieOptions?.httpOnly).toBe(true);
-    expect(cookieOptions?.sameSite).toBe("lax");
-    expect(cookieOptions?.path).toBe("/");
-  });
-
   describe("authorize", () => {
     it("should return null for invalid email format", async () => {
-      const provider = authOptions.providers[0];
-      if (!("authorize" in provider)) throw new Error("Credentials provider not configured");
-      const result = await provider.authorize({
-        email: "invalid",
-        password: "test-password",
-      }, {} as Parameters<typeof provider.authorize>[1]);
+      const provider = authOptions.providers[0]!;
+      if (!("authorize" in provider))
+        throw new Error("Credentials provider not configured");
+      const result = await provider.authorize(
+        {
+          email: "invalid",
+          password: "test-password",
+        },
+        {} as Parameters<typeof provider.authorize>[1],
+      );
       expect(result).toBeNull();
     });
 
     it("should return null for short password", async () => {
-      const provider = authOptions.providers[0];
-      if (!("authorize" in provider)) throw new Error("Credentials provider not configured");
-      const result = await provider.authorize({
-        email: "test@example.com",
-        password: "12345",
-      }, {} as Parameters<typeof provider.authorize>[1]);
+      const provider = authOptions.providers[0]!;
+      if (!("authorize" in provider))
+        throw new Error("Credentials provider not configured");
+      const result = await provider.authorize(
+        {
+          email: "test@example.com",
+          password: "12345",
+        },
+        {} as Parameters<typeof provider.authorize>[1],
+      );
       expect(result).toBeNull();
     });
 
     it("should return null when credentials are undefined", async () => {
-      const provider = authOptions.providers[0];
-      if (!("authorize" in provider)) throw new Error("Credentials provider not configured");
+      const provider = authOptions.providers[0]!;
+      if (!("authorize" in provider))
+        throw new Error("Credentials provider not configured");
       const result = await provider.authorize(
         undefined,
         {} as Parameters<typeof provider.authorize>[1],

@@ -56,6 +56,11 @@ trinax bank logo/
 prisma/test-*.db
 prisma/test-*.db-shm
 prisma/test-*.db-wal
+prisma/test-template.lock
+prisma/test-template.ready
 prisma/test.db
 prisma/test.db-shm
 prisma/test.db-wal
+
+# command code session data
+.commandcode/

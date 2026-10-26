@@ -1,13 +1,10 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { formatCents } from "@/lib/money";
+import type { NotificationType } from "@/lib/domain";
 
 type Tx = PrismaClient | Prisma.TransactionClient;
 
-export type NotificationType =
-  | "low_balance"
-  | "large_tx"
-  | "scheduled"
-  | "goal"
-  | "info";
+export type { NotificationType };
 
 /** Create an in-app notification for a user. */
 export async function notify(
@@ -24,7 +21,7 @@ export async function notify(
 
 /**
  * Emit threshold-based alerts after a balance-changing operation.
- * - Large transaction alert when amount >= user's largeTxThreshold.
+ * - Large transaction alert when the amount reaches the user's threshold.
  * - Low balance alert when the resulting balance drops below the threshold.
  * Respects per-user notification preferences. Never throws — alerting must
  * not break the underlying financial operation.
@@ -33,8 +30,8 @@ export async function emitBalanceAlerts(
   tx: Tx,
   params: {
     userId: string;
-    amount: number;
-    newBalance: number;
+    amountCents: number;
+    newBalanceCents: number;
     accountLabel: string;
     isDebit: boolean;
   },
@@ -45,33 +42,33 @@ export async function emitBalanceAlerts(
       select: {
         notifyLargeTx: true,
         notifyLowBalance: true,
-        largeTxThreshold: true,
-        lowBalanceThreshold: true,
+        largeTxThresholdCents: true,
+        lowBalanceThresholdCents: true,
       },
     });
     if (!user) return;
 
-    if (user.notifyLargeTx && params.amount >= user.largeTxThreshold) {
+    if (user.notifyLargeTx && params.amountCents >= user.largeTxThresholdCents) {
       await notify(
         tx,
         params.userId,
         "large_tx",
         "Large transaction",
-        `A transaction of $${params.amount.toFixed(2)} was made on ${params.accountLabel}.`,
+        `A transaction of ${formatCents(params.amountCents)} was made on ${params.accountLabel}.`,
       );
     }
 
     if (
       params.isDebit &&
       user.notifyLowBalance &&
-      params.newBalance < user.lowBalanceThreshold
+      params.newBalanceCents < user.lowBalanceThresholdCents
     ) {
       await notify(
         tx,
         params.userId,
         "low_balance",
         "Low balance",
-        `${params.accountLabel} balance is now $${params.newBalance.toFixed(2)}.`,
+        `${params.accountLabel} balance is now ${formatCents(params.newBalanceCents)}.`,
       );
     }
   } catch {

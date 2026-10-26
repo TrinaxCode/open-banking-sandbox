@@ -11,56 +11,45 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useT } from "@/components/ui/LanguageSwitcher";
-import { formatMoney } from "@/lib/money";
-import type { Account } from "@prisma/client";
-
-interface SerializedRecurringTransfer {
-  id: string;
-  userId: string;
-  fromAccountId: string;
-  targetAccountNumber: string;
-  amount: number;
-  frequency: string;
-  description: string | null;
-  nextRunAt: string;
-  lastRunAt: string | null;
-  active: boolean;
-  createdAt: string;
-}
+import { ACCOUNT_TYPE_KEYS, FREQUENCY_KEYS } from "@/lib/i18n/labels";
+import { fromCents } from "@/lib/money";
+import type { Formatters } from "@/components/ui/LanguageSwitcher";
+import type { RecurringFrequency } from "@/lib/domain";
+import type { TranslationKey } from "@/lib/i18n";
+import type { AccountForUi, RecurringTransferForUi } from "@/types/ui";
 
 interface ScheduledClientProps {
-  transfers: SerializedRecurringTransfer[];
-  accounts: Account[];
+  transfers: RecurringTransferForUi[];
+  accounts: AccountForUi[];
+  externalFeeCents: number;
 }
 
-function frequencyLabel(frequency: string, t: (key: string) => string): string {
-  switch (frequency) {
-    case "daily":
-      return t("sched.daily");
-    case "weekly":
-      return t("sched.weekly");
-    case "monthly":
-      return t("sched.monthly");
-    default:
-      return frequency;
-  }
+function frequencyLabel(frequency: string, t: (key: TranslationKey) => string): string {
+  const key = FREQUENCY_KEYS[frequency as RecurringFrequency];
+  return key ? t(key) : frequency;
 }
 
-function accountLabel(acc: Account): string {
-  const base =
-    acc.nickname ?? acc.type.charAt(0).toUpperCase() + acc.type.slice(1);
-  return `${base} (${acc.number}) — ${formatMoney(acc.balance)}`;
+function accountLabel(
+  acc: AccountForUi,
+  t: (key: TranslationKey) => string,
+  format: Formatters,
+): string {
+  const base = acc.nickname ?? t(ACCOUNT_TYPE_KEYS[acc.type]);
+  return `${base} (${acc.number}) — ${format.currency(acc.balance)}`;
 }
 
-export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
+export function ScheduledClient({
+  transfers,
+  accounts,
+  externalFeeCents,
+}: ScheduledClientProps) {
   const router = useRouter();
-  const { t, locale } = useT();
+  const { t, format } = useT();
 
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const [pendingDelete, setPendingDelete] =
-    useState<SerializedRecurringTransfer | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<RecurringTransferForUi | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -69,7 +58,8 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
     setError(null);
     setIsCreating(true);
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const result = await createRecurringTransfer(null, formData);
 
     if (result?.error) {
@@ -78,12 +68,12 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
       return;
     }
 
-    event.currentTarget.reset();
+    form.reset();
     setIsCreating(false);
     router.refresh();
   }
 
-  async function handleToggle(transfer: SerializedRecurringTransfer) {
+  async function handleToggle(transfer: RecurringTransferForUi) {
     setError(null);
     setTogglingId(transfer.id);
 
@@ -122,19 +112,21 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
   return (
     <div className="mx-auto max-w-4xl animate-fade-in px-4 py-8 sm:px-6 lg:px-8">
       <div>
-        <h1 className="text-2xl font-semibold text-white">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
           {t("sched.title")}
         </h1>
-        <p className="mt-1 text-sm text-white/40">{t("sched.subtitle")}</p>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+          {t("sched.subtitle")}
+        </p>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6">
-        <h2 className="text-sm font-semibold text-white/80">
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           {t("sched.new")}
         </h2>
         <form onSubmit={handleCreate} className="mt-4 space-y-4">
           {error && (
-            <div className="animate-slide-down rounded-xl border border-premium-coral/20 bg-premium-coral/10 px-4 py-3 text-sm font-medium text-premium-coral">
+            <div className="animate-slide-down rounded-xl border border-premium-coral/20 bg-premium-coral/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-premium-coral">
               {error}
             </div>
           )}
@@ -142,7 +134,7 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
           <div>
             <label
               htmlFor="fromAccountId"
-              className="block text-xs font-medium uppercase tracking-[0.06em] text-white/50"
+              className="block text-xs font-semibold uppercase tracking-[0.06em] text-zinc-700 dark:text-zinc-300"
             >
               {t("sched.fromAccount")}
             </label>
@@ -153,12 +145,19 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
               defaultValue=""
               className="input-premium mt-1.5"
             >
-              <option value="" className="bg-[#0a0a0a]">
+              <option
+                value=""
+                className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+              >
                 {t("sched.selectAccount")}
               </option>
               {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id} className="bg-[#0a0a0a]">
-                  {accountLabel(acc)}
+                <option
+                  key={acc.id}
+                  value={acc.id}
+                  className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+                >
+                  {accountLabel(acc, t, format)}
                 </option>
               ))}
             </select>
@@ -184,11 +183,20 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
             />
           </div>
 
+          {externalFeeCents > 0 && (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+              {t("transfer.feeNote").replace(
+                "{0}",
+                format.currency(fromCents(externalFeeCents)),
+              )}
+            </p>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="frequency"
-                className="block text-xs font-medium uppercase tracking-[0.06em] text-white/50"
+                className="block text-xs font-semibold uppercase tracking-[0.06em] text-zinc-700 dark:text-zinc-300"
               >
                 {t("sched.frequency")}
               </label>
@@ -199,13 +207,22 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
                 defaultValue="monthly"
                 className="input-premium mt-1.5"
               >
-                <option value="daily" className="bg-[#0a0a0a]">
+                <option
+                  value="daily"
+                  className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+                >
                   {t("sched.daily")}
                 </option>
-                <option value="weekly" className="bg-[#0a0a0a]">
+                <option
+                  value="weekly"
+                  className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+                >
                   {t("sched.weekly")}
                 </option>
-                <option value="monthly" className="bg-[#0a0a0a]">
+                <option
+                  value="monthly"
+                  className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+                >
                   {t("sched.monthly")}
                 </option>
               </select>
@@ -234,35 +251,37 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-semibold text-white/80">
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           {t("sched.active")}
         </h2>
 
         {transfers.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-white/[0.04] bg-white/[0.01] p-8 text-center">
-            <p className="text-sm text-white/30">{t("sched.empty")}</p>
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-white/[0.08] dark:bg-white/[0.01]">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+              {t("sched.empty")}
+            </p>
           </div>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {transfers.map((tr) => (
               <div
                 key={tr.id}
-                className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6"
+                className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-lg font-semibold text-white">
-                      {formatMoney(tr.amount)}
+                    <p className="text-lg font-semibold text-zinc-900 dark:text-white">
+                      {format.currency(tr.amount)}
                     </p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
                       {frequencyLabel(tr.frequency, t)}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide border ${
                       tr.active
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-white/[0.06] text-white/40"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                        : "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-white/[0.06] dark:text-zinc-400 dark:border-white/10"
                     }`}
                   >
                     {tr.active ? t("sched.statusActive") : t("sched.statusPaused")}
@@ -271,23 +290,29 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
 
                 <div className="mt-4 space-y-1.5 text-xs">
                   <div className="flex justify-between gap-3">
-                    <span className="text-white/40">{t("sched.to")}</span>
-                    <span className="font-mono text-amber-400/80">
+                    <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                      {t("sched.to")}
+                    </span>
+                    <span className="font-mono text-amber-700 dark:text-amber-400 font-medium">
                       {tr.targetAccountNumber}
                     </span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span className="text-white/40">{t("sched.nextRun")}</span>
-                    <span className="text-white/80">
-                      {new Date(tr.nextRunAt).toLocaleDateString(
-                        locale === "es" ? "es-ES" : "en-US",
-                      )}
+                    <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                      {t("sched.nextRun")}
+                    </span>
+                    <span className="text-zinc-800 dark:text-zinc-200 font-medium">
+                      {format.date(tr.nextRunAt)}
                     </span>
                   </div>
                   {tr.description && (
                     <div className="flex justify-between gap-3">
-                      <span className="text-white/40">{t("sched.note")}</span>
-                      <span className="truncate text-white/80">{tr.description}</span>
+                      <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                        {t("sched.note")}
+                      </span>
+                      <span className="truncate text-zinc-800 dark:text-zinc-200">
+                        {tr.description}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -297,14 +322,14 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
                     type="button"
                     onClick={() => handleToggle(tr)}
                     disabled={togglingId === tr.id}
-                    className="text-sm font-medium text-primary-400 transition-colors hover:text-primary-300 disabled:opacity-40"
+                    className="text-sm font-semibold text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 transition-colors disabled:opacity-40"
                   >
                     {tr.active ? t("sched.pause") : t("sched.resume")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPendingDelete(tr)}
-                    className="ml-auto text-xs font-medium text-white/30 transition-colors hover:text-premium-coral"
+                    className="ml-auto text-xs font-semibold text-zinc-600 dark:text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-premium-coral"
                   >
                     {t("sched.delete")}
                   </button>
@@ -320,9 +345,10 @@ export function ScheduledClient({ transfers, accounts }: ScheduledClientProps) {
         title={t("sched.deleteTitle")}
         message={
           pendingDelete
-            ? locale === "es"
-              ? `¿Eliminar la transferencia ${frequencyLabel(pendingDelete.frequency, t).toLowerCase()} de ${formatMoney(pendingDelete.amount)} a ${pendingDelete.targetAccountNumber}?`
-              : `Delete the ${frequencyLabel(pendingDelete.frequency, t).toLowerCase()} transfer of ${formatMoney(pendingDelete.amount)} to ${pendingDelete.targetAccountNumber}?`
+            ? t("sched.deleteMsg")
+                .replace("{0}", frequencyLabel(pendingDelete.frequency, t).toLowerCase())
+                .replace("{1}", format.currency(pendingDelete.amount))
+                .replace("{2}", pendingDelete.targetAccountNumber)
             : ""
         }
         confirmLabel={isDeleting ? t("sched.deleting") : t("sched.delete")}

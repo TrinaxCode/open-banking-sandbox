@@ -12,13 +12,14 @@ export default async function DashboardPage() {
   if (!data) redirect("/login");
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a0a]">
+    <div className="flex min-h-screen flex-col bg-transparent">
       <DashboardClient
         userName={data.name?.split(" ")[0] ?? "User"}
         totalBalance={data.totalBalance}
-        previousBalance={data.totalBalance * 0.9}
-        accounts={JSON.parse(JSON.stringify(data.accounts))}
-        transactions={JSON.parse(JSON.stringify(data.transactions))}
+        previousBalance={data.previousBalance}
+        accounts={data.accounts}
+        transactions={data.transactions}
+        chartTransactions={data.chartTransactions}
       />
     </div>
   );

@@ -1,205 +1,422 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { categorize } from "../src/lib/categorize";
+import { DEFAULT_DUE_DATE, DEFAULT_INTEREST_RATES } from "../src/lib/domain";
 
 const prisma = new PrismaClient();
+
+const DEMO_EMAIL = "demo@banking.app";
+const PEER_EMAIL = "alice@banking.app";
+const DEMO_PASSWORD = "demo-password";
+
+/** Dates relative to `now` keep the analytics charts meaningful over time. */
+function daysAgo(days: number, hour = 12): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
 
 async function main() {
   console.log("Seeding database...");
 
-  // Clean existing data
+  // Clean existing data (children first so FKs stay valid).
   await prisma.notification.deleteMany();
   await prisma.recurringTransfer.deleteMany();
   await prisma.savingsGoal.deleteMany();
   await prisma.beneficiary.deleteMany();
+  await prisma.categoryBudget.deleteMany();
+  await prisma.securityLog.deleteMany();
+  await prisma.virtualCard.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.jobLock.deleteMany();
+  await prisma.rateLimitEntry.deleteMany();
 
-  // Create demo user
-  const passwordHash = await bcrypt.hash("demo-password", 10);
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
-  const user = await prisma.user.create({
+  // ── Peer user ─────────────────────────────────────────
+  // Gives external transfers a real destination inside the sandbox.
+  const peer = await prisma.user.create({
     data: {
-      email: "demo@banking.app",
-      name: "Demo User",
+      email: PEER_EMAIL,
+      name: "Alice Johnson",
       passwordHash,
-      accountNumber: "ACC-1001",
+      accountNumber: "USR-4L1C30",
     },
   });
 
-  console.log(`Created demo user: ${user.email}`);
+  const peerChecking = await prisma.account.create({
+    data: {
+      userId: peer.id,
+      type: "checking",
+      number: "CHK-AB12CD",
+      nickname: "Main",
+      balanceCents: 318_420, // $3,184.20
+    },
+  });
 
-  // Create accounts
-  const checkingAccount = await prisma.account.create({
+  // ── Demo user ─────────────────────────────────────────
+  const user = await prisma.user.create({
+    data: {
+      email: DEMO_EMAIL,
+      name: "Demo User",
+      passwordHash,
+      accountNumber: "USR-D3M000",
+    },
+  });
+
+  const checking = await prisma.account.create({
     data: {
       userId: user.id,
       type: "checking",
-      number: "CHK-1001",
-      balance: 5240.75,
+      number: "CHK-001001",
+      nickname: "Everyday",
+      balanceCents: 524_075, // $5,240.75
+      interestRate: DEFAULT_INTEREST_RATES.checking,
     },
   });
 
-  const savingsAccount = await prisma.account.create({
+  const savings = await prisma.account.create({
     data: {
       userId: user.id,
       type: "savings",
-      number: "SAV-1001",
-      balance: 12750.0,
-      interestRate: 3.5,
+      number: "SAV-001001",
+      nickname: "Rainy day",
+      balanceCents: 1_275_000, // $12,750.00
+      interestRate: DEFAULT_INTEREST_RATES.savings,
+      // Five days of unposted interest so the first dashboard load has
+      // something for the job runner to accrue.
+      lastInterestAt: daysAgo(5),
     },
   });
 
-  console.log(`Created ${2} accounts`);
+  const credit = await prisma.account.create({
+    data: {
+      userId: user.id,
+      type: "credit",
+      number: "CRD-001001",
+      nickname: "Travel card",
+      balanceCents: -125_050, // -$1,250.50 owed
+      creditLimitCents: 500_000, // $5,000.00
+      interestRate: DEFAULT_INTEREST_RATES.credit,
+      dueDate: DEFAULT_DUE_DATE,
+    },
+  });
 
-  // Create transactions
-  const transactions = [
+  console.log(`Created demo user ${user.email} with 3 accounts`);
+
+  // ── Transactions ──────────────────────────────────────
+  const transactions: Array<{
+    accountId: string;
+    type: string;
+    amountCents: number;
+    description: string;
+    days: number;
+  }> = [
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "deposit" as const,
-      amount: 5000.0,
+      accountId: checking.id,
+      type: "deposit",
+      amountCents: 500_000,
       description: "Direct deposit - Salary",
-      status: "completed",
-      createdAt: new Date("2026-06-01"),
+      days: 40,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "withdrawal" as const,
-      amount: 1500.0,
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 150_000,
       description: "Rent payment",
-      status: "completed",
-      createdAt: new Date("2026-06-03"),
+      days: 38,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "withdrawal" as const,
-      amount: 89.99,
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 8_999,
       description: "Electric bill",
-      status: "completed",
-      createdAt: new Date("2026-06-05"),
+      days: 36,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "deposit" as const,
-      amount: 250.0,
+      accountId: checking.id,
+      type: "deposit",
+      amountCents: 25_000,
       description: "Freelance payment",
-      status: "completed",
-      createdAt: new Date("2026-06-08"),
+      days: 33,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "withdrawal" as const,
-      amount: 45.0,
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 4_500,
       description: "Coffee shop",
-      status: "completed",
-      createdAt: new Date("2026-06-10"),
+      days: 30,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "withdrawal" as const,
-      amount: 120.0,
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 12_000,
       description: "Groceries",
-      status: "completed",
-      createdAt: new Date("2026-06-12"),
+      days: 28,
     },
     {
-      userId: user.id,
-      accountId: savingsAccount.id,
-      type: "deposit" as const,
-      amount: 1000.0,
-      description: "Transfer to savings",
-      status: "completed",
-      createdAt: new Date("2026-06-02"),
-    },
-    {
-      userId: user.id,
-      accountId: savingsAccount.id,
-      type: "deposit" as const,
-      amount: 500.0,
-      description: "Savings deposit",
-      status: "completed",
-      createdAt: new Date("2026-06-15"),
-    },
-    {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "withdrawal" as const,
-      amount: 60.0,
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 6_000,
       description: "Internet bill",
-      status: "completed",
-      createdAt: new Date("2026-06-16"),
+      days: 26,
     },
     {
-      userId: user.id,
-      accountId: checkingAccount.id,
-      type: "deposit" as const,
-      amount: 5000.0,
+      accountId: checking.id,
+      type: "transfer_out",
+      amountCents: 50_000,
+      description: "Transfer to Rainy day - Monthly savings",
+      days: 24,
+    },
+    {
+      accountId: savings.id,
+      type: "transfer_in",
+      amountCents: 50_000,
+      description: "Transfer from Everyday - Monthly savings",
+      days: 24,
+    },
+    {
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 3_499,
+      description: "Netflix subscription",
+      days: 21,
+    },
+    {
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 150_000,
+      description: "Rent payment",
+      days: 8,
+    },
+    {
+      accountId: checking.id,
+      type: "deposit",
+      amountCents: 500_000,
       description: "Direct deposit - Salary",
-      status: "completed",
-      createdAt: new Date("2026-06-18"),
+      days: 5,
+    },
+    {
+      accountId: checking.id,
+      type: "withdrawal",
+      amountCents: 8_999,
+      description: "Electric bill",
+      days: 3,
+    },
+    // External transfer: the outgoing leg plus the sandbox fee as its own line.
+    {
+      accountId: checking.id,
+      type: "transfer_out",
+      amountCents: 20_000,
+      description: "Transfer to Alice Johnson (CHK-AB12CD) - Split dinner",
+      days: 2,
+    },
+    {
+      accountId: checking.id,
+      type: "fee",
+      amountCents: 100,
+      description: "External transfer fee",
+      days: 2,
+    },
+    {
+      accountId: peerChecking.id,
+      type: "transfer_in",
+      amountCents: 20_000,
+      description: "Transfer from external account (CHK-001001) - Split dinner",
+      days: 2,
+    },
+    {
+      accountId: credit.id,
+      type: "withdrawal",
+      amountCents: 125_050,
+      description: "Hotel booking",
+      days: 12,
+    },
+    // Interest already posted by the job runner for the savings account.
+    {
+      accountId: savings.id,
+      type: "interest",
+      amountCents: 1_222,
+      description: "Interest earned (10 days)",
+      days: 10,
+    },
+    {
+      accountId: savings.id,
+      type: "deposit",
+      amountCents: 100_000,
+      description: "Savings deposit",
+      days: 6,
     },
   ];
 
   for (const tx of transactions) {
-    // Auto-assign a spending category from the description.
     await prisma.transaction.create({
-      data: { ...tx, category: categorize(tx.type, tx.description) },
+      data: {
+        userId: tx.accountId === peerChecking.id ? peer.id : user.id,
+        accountId: tx.accountId,
+        type: tx.type,
+        amountCents: tx.amountCents,
+        description: tx.description,
+        category: categorize(
+          tx.type,
+          tx.description.split(" - ").pop() ?? tx.description,
+        ),
+        status: "completed",
+        createdAt: daysAgo(tx.days),
+      },
     });
   }
 
   console.log(`Created ${transactions.length} transactions`);
 
-  // Beneficiaries
+  // ── Beneficiaries ─────────────────────────────────────
   await prisma.beneficiary.createMany({
     data: [
-      { userId: user.id, name: "Alice Johnson", accountNumber: "CHK-AB12CD", nickname: "Roommate" },
-      { userId: user.id, name: "Bob's Plumbing", accountNumber: "CHK-99XY00", nickname: null },
+      {
+        userId: user.id,
+        name: "Alice Johnson",
+        accountNumber: peerChecking.number,
+        nickname: "Roommate",
+      },
+      {
+        userId: user.id,
+        name: "Bob's Plumbing",
+        accountNumber: "CHK-99XY00",
+        nickname: null,
+      },
     ],
   });
 
-  // Savings goal (linked to savings account)
+  // ── Savings goal ──────────────────────────────────────
   await prisma.savingsGoal.create({
     data: {
       userId: user.id,
-      accountId: savingsAccount.id,
+      accountId: savings.id,
       name: "Emergency Fund",
-      targetAmount: 10000,
-      currentAmount: 3500,
+      targetAmountCents: 1_000_000, // $10,000.00
+      currentAmountCents: 350_000, // $3,500.00
       color: "emerald",
-      deadline: new Date("2026-12-31"),
+      deadline: new Date(new Date().getFullYear() + 1, 11, 31),
     },
   });
 
-  // Scheduled recurring transfer (monthly to savings)
+  // ── Scheduled transfer (upcoming) ─────────────────────
   await prisma.recurringTransfer.create({
     data: {
       userId: user.id,
-      fromAccountId: checkingAccount.id,
-      targetAccountNumber: savingsAccount.number,
-      amount: 500,
+      fromAccountId: checking.id,
+      targetAccountNumber: savings.number,
+      amountCents: 50_000, // $500.00
       frequency: "monthly",
       description: "Monthly savings",
-      nextRunAt: new Date("2026-07-01"),
+      nextRunAt: daysAgo(-7, 9),
     },
   });
 
-  // Welcome notification
-  await prisma.notification.create({
-    data: {
-      userId: user.id,
-      type: "info",
-      title: "Welcome to Trinax Bank",
-      body: "Explore analytics, savings goals, beneficiaries and scheduled transfers.",
-    },
+  // ── Notifications ─────────────────────────────────────
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: user.id,
+        type: "info",
+        title: "Welcome to Trinax Bank",
+        body: "Explore analytics, savings goals, beneficiaries and scheduled transfers.",
+        createdAt: daysAgo(45),
+      },
+      {
+        userId: user.id,
+        type: "interest",
+        title: "Interest earned",
+        body: "Your Rainy day account earned $12.22 in interest.",
+        createdAt: daysAgo(10),
+      },
+      {
+        userId: user.id,
+        type: "low_balance",
+        title: "Low balance",
+        body: "Travel card balance is now -$1,250.50.",
+        createdAt: daysAgo(12),
+      },
+    ],
   });
 
-  console.log("Created beneficiaries, a savings goal, a scheduled transfer, and a notification");
+  // ── Category Budgets ──────────────────────────────────
+  await prisma.categoryBudget.createMany({
+    data: [
+      { userId: user.id, category: "food", amountCents: 60_000 },
+      { userId: user.id, category: "shopping", amountCents: 40_000 },
+      { userId: user.id, category: "bills", amountCents: 85_000 },
+      { userId: user.id, category: "transport", amountCents: 25_000 },
+      { userId: user.id, category: "entertainment", amountCents: 20_000 },
+    ],
+  });
+
+  // ── Virtual Cards ─────────────────────────────────────
+  await prisma.virtualCard.createMany({
+    data: [
+      {
+        userId: user.id,
+        cardNumber: "4532891044218834",
+        cardHolder: "DEMO USER",
+        expiryDate: "08/29",
+        cvv: "482",
+        isFrozen: false,
+        isTemporary: false,
+        createdAt: daysAgo(30, 16),
+      },
+      {
+        userId: user.id,
+        cardNumber: "4532119873409215",
+        cardHolder: "DEMO USER",
+        expiryDate: "11/26",
+        cvv: "917",
+        isFrozen: false,
+        isTemporary: true,
+        expiresAt: daysAgo(-1, 16),
+        maxUses: 1,
+        usageCount: 0,
+        createdAt: daysAgo(0, 10),
+      },
+    ],
+  });
+
+  // ── Security Logs ─────────────────────────────────────
+  await prisma.securityLog.createMany({
+    data: [
+      {
+        userId: user.id,
+        action: "login",
+        details: "Successful web login via Chrome on Linux",
+        ipAddress: "192.168.1.45",
+        createdAt: daysAgo(1, 14),
+      },
+      {
+        userId: user.id,
+        action: "account_created",
+        details: "Account CHK-001001 (Everyday Checking) opened",
+        ipAddress: "192.168.1.45",
+        createdAt: daysAgo(60, 10),
+      },
+      {
+        userId: user.id,
+        action: "card_created",
+        details: "Virtual Visa Card created for online purchases",
+        ipAddress: "192.168.1.45",
+        createdAt: daysAgo(30, 16),
+      },
+    ],
+  });
+
+  console.log(
+    "Created beneficiaries, a savings goal, scheduled transfer, notifications, budgets and security logs",
+  );
+  console.log("");
+  console.log("  Sign in:   " + DEMO_EMAIL + " / " + DEMO_PASSWORD);
+  console.log("  Peer user: " + PEER_EMAIL + " / " + DEMO_PASSWORD);
+  console.log("");
   console.log("Seed completed!");
 }
 

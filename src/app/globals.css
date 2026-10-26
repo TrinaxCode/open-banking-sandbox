@@ -4,18 +4,18 @@
 
 @layer base {
   * {
-    @apply border-white/[0.06];
+    @apply border-zinc-200 dark:border-white/[0.06];
   }
 
   body {
-    @apply bg-[#0a0a0a] text-gray-200 antialiased;
+    @apply bg-slate-50 text-zinc-800 dark:bg-[#0a0a0a] dark:text-gray-200 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "cv05";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    @apply bg-primary-500/20 text-white;
+    @apply bg-primary-500/20 text-zinc-900 dark:text-white;
   }
 
   /* Custom scrollbar */
@@ -29,20 +29,38 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-white/[0.08] hover:bg-white/[0.15] transition-colors duration-300;
+    @apply rounded-full bg-zinc-300 hover:bg-zinc-400 dark:bg-white/[0.08] dark:hover:bg-white/[0.15] transition-colors duration-300;
   }
 
   html {
     scroll-behavior: smooth;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   /* Prevent iOS Safari zoom on input focus */
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-size: 16px !important;
   }
 
   @supports (-webkit-touch-callout: none) {
-    input, textarea, select {
+    input,
+    textarea,
+    select {
       font-size: 16px !important;
     }
   }
@@ -50,11 +68,11 @@
 
 @layer components {
   .glass {
-    @apply bg-white/[0.03] backdrop-blur-2xl border border-white/[0.06] shadow-glass;
+    @apply bg-white/80 dark:bg-white/[0.03] backdrop-blur-2xl border border-zinc-200/80 dark:border-white/[0.06] shadow-sm dark:shadow-glass;
   }
 
   .glass-hover {
-    @apply hover:bg-white/[0.05] transition-all duration-300;
+    @apply hover:bg-zinc-100/80 dark:hover:bg-white/[0.05] transition-all duration-300;
   }
 
   .glass-card {
@@ -62,7 +80,7 @@
   }
 
   .glass-card-hover {
-    @apply glass-card transition-all duration-300 hover:bg-white/[0.05] hover:border-white/[0.1] hover:shadow-glow;
+    @apply glass-card transition-all duration-300 hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-md dark:hover:bg-white/[0.05] dark:hover:border-white/[0.1] dark:hover:shadow-glow;
   }
 
   .gradient-primary {
@@ -74,29 +92,50 @@
   }
 
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-premium-gold;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-amber-600 dark:from-primary-400 dark:to-premium-gold;
   }
 
   .input-premium {
-    @apply w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3
-           text-sm text-white placeholder:text-white/25
-           focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500/40
+    @apply w-full rounded-xl border border-zinc-300 bg-white px-4 py-3
+           text-sm text-zinc-900 placeholder:text-zinc-400
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500
+           dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-zinc-500
+           dark:focus:ring-primary-500/40 dark:focus:border-primary-500/40
            transition-all duration-300;
   }
 
   .nav-link {
     @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium
-           text-white/50 transition-all duration-200
-           hover:text-white hover:bg-white/[0.04];
+           text-zinc-600 transition-all duration-200
+           hover:text-zinc-950 hover:bg-zinc-100
+           dark:text-zinc-300 dark:hover:text-white dark:hover:bg-white/[0.06];
   }
 
   .nav-link-active {
-    @apply text-white bg-white/[0.06] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2
-           before:h-5 before:w-0.5 before:rounded-full before:bg-primary-400;
+    @apply text-primary-800 bg-primary-50 font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2
+           before:h-5 before:w-0.5 before:rounded-full before:bg-primary-500
+           dark:text-white dark:bg-white/[0.08] dark:before:bg-primary-400;
   }
 
   .premium-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.06) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  }
+
+  html.dark .premium-scrollbar {
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  }
+
+  @media print {
+    body {
+      background: white !important;
+      color: black !important;
+    }
+    aside,
+    header,
+    nav,
+    .no-print {
+      display: none !important;
+    }
   }
 }

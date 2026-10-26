@@ -1,20 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { transactionsToCsv } from "./csv";
-import type { Transaction } from "@prisma/client";
+import { transactionsToCsv, type TransactionCsvRow } from "./csv";
 
-function tx(overrides: Partial<Transaction> = {}): Transaction {
+function row(overrides: Partial<TransactionCsvRow> = {}): TransactionCsvRow {
   return {
-    id: "t1",
-    userId: "u1",
-    accountId: "a1",
-    targetAccountId: null,
+    createdAt: new Date("2026-06-15T12:00:00Z"),
     type: "deposit",
-    amount: 100,
+    category: "income",
     description: "Salary",
     reference: null,
-    category: "income",
+    amount: 100,
     status: "completed",
-    createdAt: new Date("2026-06-15T12:00:00Z"),
     ...overrides,
   };
 }
@@ -28,7 +23,7 @@ describe("transactionsToCsv", () => {
   });
 
   it("serializes a transaction row", () => {
-    const csv = transactionsToCsv([tx()]);
+    const csv = transactionsToCsv([row()]);
     const lines = csv.split("\n");
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain("deposit");
@@ -37,12 +32,17 @@ describe("transactionsToCsv", () => {
   });
 
   it("escapes commas and quotes in descriptions", () => {
-    const csv = transactionsToCsv([tx({ description: 'Coffee, "large"' })]);
+    const csv = transactionsToCsv([row({ description: 'Coffee, "large"' })]);
     expect(csv).toContain('"Coffee, ""large"""');
   });
 
-  it("formats amount with two decimals", () => {
-    const csv = transactionsToCsv([tx({ amount: 1234.5 })]);
+  it("formats amounts with two decimals", () => {
+    const csv = transactionsToCsv([row({ amount: 1234.5 })]);
     expect(csv).toContain("1234.50");
+  });
+
+  it("accepts ISO date strings as well as Date objects", () => {
+    const csv = transactionsToCsv([row({ createdAt: "2026-01-02T03:04:05.000Z" })]);
+    expect(csv).toContain("2026-01-02T03:04:05.000Z");
   });
 });

@@ -1,146 +1,287 @@
-import type { PrismaClient, Account, Transaction } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { addCalendarMonths } from "@/lib/calendar";
+import { incomeMovementWhere, spendingMovementWhere } from "@/lib/interest";
+import { fromCents } from "@/lib/money";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { listAccounts } from "@/lib/services/accounts";
+import { getAnalyticsData } from "@/lib/services/analytics";
+import { listRecurringTransfers } from "@/lib/services/recurring";
+import { getBudgetsSummary, type BudgetsSummary } from "@/lib/services/budgets";
+import { getSecurityLogs } from "@/lib/services/security";
+import {
+  getAccountStatement,
+  type AccountStatementData,
+} from "@/lib/services/statements";
+import {
+  serializeAccount,
+  serializeAccounts,
+  serializeBeneficiaries,
+  serializeCards,
+  serializeGoals,
+  serializeNotifications,
+  serializeProfile,
+  serializeRecurringTransfers,
+  serializeTransactions,
+} from "@/lib/serialize";
+import type {
+  AccountForUi,
+  BeneficiaryForUi,
+  NotificationForUi,
+  ProfileForUi,
+  RecurringTransferForUi,
+  SavingsGoalForUi,
+  SecurityLogForUi,
+  TransactionForUi,
+  VirtualCardForUi,
+} from "@/types/ui";
+
+/**
+ * Data loaders for Server Components.
+ *
+ * Everything the pages render comes from here, which is what keeps the cents →
+ * decimals conversion in one place: the loaders read cent-precise rows and
+ * return UI objects (see src/lib/serialize.ts).
+ */
 
 export interface DashboardUserData {
   id: string;
   email: string;
   name: string | null;
-  accounts: Account[];
-  transactions: Transaction[];
+  accounts: AccountForUi[];
+  transactions: TransactionForUi[];
+  /** Movements in the chart window. The recent list above stays short. */
+  chartTransactions: TransactionForUi[];
+  /** Decimal currency units. */
   totalBalance: number;
+  /** Total balance 30 days ago, derived from the net flow in that window. */
+  previousBalance: number;
 }
 
-/**
- * Fetch full dashboard data for a given user ID.
- * Returns null if the user does not exist.
- * Accepts an optional prisma instance for testing.
- */
+const DEFAULT_DASHBOARD_TRANSACTIONS = 10;
+const BALANCE_COMPARISON_DAYS = 30;
+const CHART_HISTORY_MONTHS = 6;
+
+/** Start of the dashboard chart window. Month-end days clamp instead of overflowing. */
+export function chartWindowStart(now: Date, months: number = CHART_HISTORY_MONTHS): Date {
+  return addCalendarMonths(now, -months);
+}
+
 export async function getDashboardData(
   userId: string,
-  prisma?: PrismaClient,
+  prisma: PrismaClient = defaultPrisma,
+  now: Date = new Date(),
 ): Promise<DashboardUserData | null> {
-  const client = prisma ?? defaultPrisma;
-
-  const user = await client.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
       accounts: true,
       transactions: {
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: DEFAULT_DASHBOARD_TRANSACTIONS,
       },
     },
   });
 
   if (!user) return null;
 
-  const totalBalance = user.accounts.reduce(
-    (sum, acc) => sum + acc.balance,
+  const chartSince = chartWindowStart(now);
+  const chartRows = await prisma.transaction.findMany({
+    where: { userId, createdAt: { gte: chartSince } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const totalBalanceCents = user.accounts.reduce(
+    (sum, account) => sum + account.balanceCents,
     0,
   );
+
+  // "vs last month" is derived from real flows rather than assumed: the balance
+  // a month ago is today's balance minus everything that moved since.
+  const since = new Date(Date.now() - BALANCE_COMPARISON_DAYS * 24 * 60 * 60 * 1000);
+  const [income, spending] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: {
+        ...incomeMovementWhere(userId),
+        createdAt: { gte: since },
+      },
+      _sum: { amountCents: true },
+    }),
+    prisma.transaction.aggregate({
+      where: {
+        ...spendingMovementWhere(userId),
+        createdAt: { gte: since },
+      },
+      _sum: { amountCents: true },
+    }),
+  ]);
+  const netCents = (income._sum.amountCents ?? 0) - (spending._sum.amountCents ?? 0);
 
   return {
     id: user.id,
     email: user.email,
     name: user.name,
-    accounts: user.accounts,
-    transactions: user.transactions,
-    totalBalance,
+    accounts: serializeAccounts(user.accounts),
+    transactions: serializeTransactions(user.transactions),
+    chartTransactions: serializeTransactions(chartRows),
+    totalBalance: fromCents(totalBalanceCents),
+    previousBalance: fromCents(totalBalanceCents - netCents),
   };
 }
 
-export interface CategoryTotal {
-  category: string;
-  total: number;
+export async function getUserByEmail(
+  email: string,
+  prisma: PrismaClient = defaultPrisma,
+) {
+  return prisma.user.findUnique({ where: { email } });
 }
 
-export interface MonthlyTotal {
-  month: string; // "YYYY-MM"
-  income: number;
-  spending: number;
-}
+// ── Loaders for dashboard pages ─────────────────────────
 
-export interface AnalyticsData {
-  spendingByCategory: CategoryTotal[];
-  monthly: MonthlyTotal[];
-  totalSpending: number;
-  totalIncome: number;
-  topCategory: string | null;
-}
-
-/**
- * Aggregate a user's transactions into spending-by-category and a 6-month
- * income/spending trend. Spending = withdrawals + outgoing transfers;
- * income = deposits + incoming transfers.
- */
-export async function getAnalyticsData(
+export async function getAccountsForUi(
   userId: string,
-  prisma?: PrismaClient,
-): Promise<AnalyticsData> {
-  const client = prisma ?? defaultPrisma;
-  const transactions = await client.transaction.findMany({
+  prisma: PrismaClient = defaultPrisma,
+): Promise<AccountForUi[]> {
+  return serializeAccounts(await listAccounts(userId, prisma));
+}
+
+export async function getAccountDetailForUi(
+  userId: string,
+  accountId: string,
+  transactionLimit = 50,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<(AccountForUi & { transactions: TransactionForUi[] }) | null> {
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, userId },
+    include: {
+      transactions: {
+        orderBy: { createdAt: "desc" },
+        take: transactionLimit,
+      },
+    },
+  });
+  if (!account) return null;
+
+  const { transactions, ...rest } = account;
+  return {
+    ...serializeAccount(rest),
+    transactions: serializeTransactions(transactions),
+  };
+}
+
+export async function getGoalsForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<SavingsGoalForUi[]> {
+  const goals = await prisma.savingsGoal.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    take: 1000,
   });
+  return serializeGoals(goals);
+}
 
-  const isSpending = (t: Transaction) =>
-    t.type === "withdrawal" || t.type === "transfer_out";
-  const isIncome = (t: Transaction) =>
-    t.type === "deposit" || t.type === "transfer_in";
+export async function getScheduledForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<RecurringTransferForUi[]> {
+  return serializeRecurringTransfers(await listRecurringTransfers(userId, prisma));
+}
 
-  const byCategory = new Map<string, number>();
-  const byMonth = new Map<string, { income: number; spending: number }>();
-  let totalSpending = 0;
-  let totalIncome = 0;
+export async function getCardsForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<VirtualCardForUi[]> {
+  const cards = await prisma.virtualCard.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  return serializeCards(cards);
+}
 
-  for (const t of transactions) {
-    const d = new Date(t.createdAt);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const bucket = byMonth.get(monthKey) ?? { income: 0, spending: 0 };
+export async function getBeneficiariesForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<BeneficiaryForUi[]> {
+  const beneficiaries = await prisma.beneficiary.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  return serializeBeneficiaries(beneficiaries);
+}
 
-    if (isSpending(t)) {
-      totalSpending += t.amount;
-      bucket.spending += t.amount;
-      const cat = t.category || "other";
-      byCategory.set(cat, (byCategory.get(cat) ?? 0) + t.amount);
-    } else if (isIncome(t)) {
-      totalIncome += t.amount;
-      bucket.income += t.amount;
-    }
-    byMonth.set(monthKey, bucket);
+export async function getNotificationsForUi(
+  userId: string,
+  take = 30,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<NotificationForUi[]> {
+  const notifications = await prisma.notification.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+  return serializeNotifications(notifications);
+}
+
+export async function getProfileForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<ProfileForUi | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return null;
+
+  const accounts = await listAccounts(userId, prisma);
+  return serializeProfile(user, accounts);
+}
+
+export async function getBudgetsForUi(
+  userId: string,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<BudgetsSummary> {
+  const result = await getBudgetsSummary(userId, prisma);
+  if (!result.ok) {
+    return {
+      budgets: [],
+      totalBudget: 0,
+      totalBudgetCents: 0,
+      totalSpent: 0,
+      totalSpentCents: 0,
+      totalRemaining: 0,
+      totalRemainingCents: 0,
+      overallPercentUsed: 0,
+      month: new Date().toISOString().slice(0, 7),
+    };
   }
-
-  const spendingByCategory = Array.from(byCategory.entries())
-    .map(([category, total]) => ({ category, total: Math.round(total * 100) / 100 }))
-    .sort((a, b) => b.total - a.total);
-
-  const monthly = Array.from(byMonth.entries())
-    .map(([month, v]) => ({
-      month,
-      income: Math.round(v.income * 100) / 100,
-      spending: Math.round(v.spending * 100) / 100,
-    }))
-    .sort((a, b) => a.month.localeCompare(b.month))
-    .slice(-6);
-
-  return {
-    spendingByCategory,
-    monthly,
-    totalSpending: Math.round(totalSpending * 100) / 100,
-    totalIncome: Math.round(totalIncome * 100) / 100,
-    topCategory: spendingByCategory[0]?.category ?? null,
-  };
+  return result.data;
 }
 
-/**
- * Look up a user by email for authentication.
- * Returns the user with passwordHash or null.
- * Accepts an optional prisma instance for testing.
- */
-export async function getUserByEmail(email: string, prisma?: PrismaClient) {
-  const client = prisma ?? defaultPrisma;
-  return client.user.findUnique({
-    where: { email },
-  });
+export async function getSecurityLogsForUi(
+  userId: string,
+  limit = 20,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<SecurityLogForUi[]> {
+  const result = await getSecurityLogs(userId, limit, prisma);
+  if (!result.ok) return [];
+  return result.data.map((entry) => ({
+    id: entry.id,
+    action: entry.action,
+    details: entry.details,
+    ipAddress: entry.ipAddress,
+    createdAt: entry.createdAt.toISOString(),
+  }));
 }
+
+export async function getStatementForUi(
+  userId: string,
+  accountId: string,
+  year: number,
+  month: number,
+  prisma: PrismaClient = defaultPrisma,
+): Promise<AccountStatementData | null> {
+  const result = await getAccountStatement(userId, accountId, year, month, prisma);
+  if (!result.ok) return null;
+  return result.data;
+}
+
+export { getAnalyticsData };
+export type { AnalyticsData } from "@/lib/services/analytics";
+export type { BudgetsSummary } from "@/lib/services/budgets";
+export type { AccountStatementData } from "@/lib/services/statements";

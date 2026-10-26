@@ -7,14 +7,15 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useT } from "@/components/ui/LanguageSwitcher";
-import type { Account } from "@prisma/client";
+import { accountTypeKey } from "@/lib/i18n/labels";
+import type { AccountForUi } from "@/types/ui";
 
 interface WithdrawFormProps {
-  accounts: Account[];
+  accounts: AccountForUi[];
 }
 
 export function WithdrawForm({ accounts }: WithdrawFormProps) {
-  const { t } = useT();
+  const { t, format } = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultAccount = searchParams.get("accountId") ?? "";
@@ -22,13 +23,16 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmDetails, setConfirmDetails] = useState<{ label: string; value: string }[]>([]);
+  const [confirmDetails, setConfirmDetails] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [pendingData, setPendingData] = useState<FormData | null>(null);
 
   function getAccountName(id: string): string {
     const acc = accounts.find((a) => a.id === id);
-    if (!acc) return "Unknown";
-    return `${acc.type.charAt(0).toUpperCase() + acc.type.slice(1)} (${acc.number})`;
+    if (!acc) return t("goals.unknownAccount");
+    const name = acc.nickname || t(accountTypeKey(acc.type));
+    return `${name} (${acc.number})`;
   }
 
   function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -42,7 +46,10 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
 
     const details = [
       { label: t("transfer.from"), value: getAccountName(accountId) },
-      { label: t("transfer.amount"), value: `$${parseFloat(amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` },
+      {
+        label: t("transfer.amount"),
+        value: format.currency(parseFloat(amount) || 0),
+      },
     ];
     if (desc) details.push({ label: t("transfer.description"), value: desc });
 
@@ -69,16 +76,19 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
 
   return (
     <>
-      <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-white/[0.04] dark:bg-white/[0.02] shadow-sm">
         <form onSubmit={handleFormSubmit} className="space-y-4">
           {error && (
-            <div className="animate-slide-down rounded-xl bg-premium-coral/10 border border-premium-coral/20 px-4 py-3 text-sm font-medium text-premium-coral">
+            <div className="animate-slide-down rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm font-medium text-red-700 dark:text-premium-coral">
               {error}
             </div>
           )}
 
           <div>
-            <label htmlFor="accountId" className="block text-xs font-medium uppercase tracking-[0.06em] text-white/50">
+            <label
+              htmlFor="accountId"
+              className="block text-xs font-semibold uppercase tracking-[0.06em] text-zinc-700 dark:text-zinc-300"
+            >
               {t("transfer.from")}
             </label>
             <select
@@ -88,10 +98,20 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
               required
               className="input-premium mt-1.5"
             >
-              <option value="" className="bg-[#0a0a0a]">{t("transfer.selectAccount")}</option>
+              <option
+                value=""
+                className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+              >
+                {t("transfer.selectAccount")}
+              </option>
               {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id} className="bg-[#0a0a0a]">
-                  {acc.type.charAt(0).toUpperCase() + acc.type.slice(1)} ({acc.number}) — ${acc.balance.toFixed(2)}
+                <option
+                  key={acc.id}
+                  value={acc.id}
+                  className="bg-white text-zinc-900 dark:bg-[#0a0a0a] dark:text-zinc-200"
+                >
+                  {acc.nickname || t(accountTypeKey(acc.type))} ({acc.number}) —{" "}
+                  {format.currency(acc.balance)}
                 </option>
               ))}
             </select>
@@ -119,7 +139,11 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
             <Button type="submit" className="flex-1">
               {t("withdraw.review")}
             </Button>
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/dashboard")}
+            >
               {t("common.cancel")}
             </Button>
           </div>
@@ -134,7 +158,10 @@ export function WithdrawForm({ accounts }: WithdrawFormProps) {
         confirmLabel={isLoading ? t("common.processing") : t("withdraw.confirm.btn")}
         loading={isLoading}
         onConfirm={executeWithdraw}
-        onCancel={() => { setShowConfirm(false); setIsLoading(false); }}
+        onCancel={() => {
+          setShowConfirm(false);
+          setIsLoading(false);
+        }}
       />
     </>
   );

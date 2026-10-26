@@ -9,9 +9,7 @@ test.describe("Login Flow", () => {
     await expect(page.locator("h1")).toHaveText("Welcome back");
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /sign in/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
   });
 
   test("should show error with invalid credentials", async ({ page }) => {

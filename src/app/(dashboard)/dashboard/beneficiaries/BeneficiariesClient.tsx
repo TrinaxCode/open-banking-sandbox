@@ -24,7 +24,7 @@ interface BeneficiariesClientProps {
 
 export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps) {
   const router = useRouter();
-  const { t, locale } = useT();
+  const { t } = useT();
 
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -37,7 +37,8 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
     setError(null);
     setIsAdding(true);
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const result = await addBeneficiary(null, formData);
 
     if (result?.error) {
@@ -46,7 +47,7 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
       return;
     }
 
-    event.currentTarget.reset();
+    form.reset();
     setIsAdding(false);
     router.refresh();
   }
@@ -74,19 +75,21 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
   return (
     <div className="mx-auto max-w-4xl animate-fade-in px-4 py-8 sm:px-6 lg:px-8">
       <div>
-        <h1 className="text-2xl font-semibold text-white">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
           {t("benef.title")}
         </h1>
-        <p className="mt-1 text-sm text-white/40">{t("benef.subtitle")}</p>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          {t("benef.subtitle")}
+        </p>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6">
-        <h2 className="text-sm font-semibold text-white/80">
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/[0.04] dark:bg-white/[0.02]">
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           {t("benef.add")}
         </h2>
         <form onSubmit={handleAdd} className="mt-4 space-y-4">
           {error && (
-            <div className="animate-slide-down rounded-xl border border-premium-coral/20 bg-premium-coral/10 px-4 py-3 text-sm font-medium text-premium-coral">
+            <div className="animate-slide-down rounded-xl border border-premium-coral/20 bg-premium-coral/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-premium-coral">
               {error}
             </div>
           )}
@@ -124,28 +127,34 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-semibold text-white/80">
+        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           {t("benef.saved")}
         </h2>
 
         {beneficiaries.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-white/[0.04] bg-white/[0.01] p-8 text-center">
-            <p className="text-sm text-white/30">{t("benef.empty")}</p>
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-white/[0.08] dark:bg-white/[0.01]">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+              {t("benef.empty")}
+            </p>
           </div>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {beneficiaries.map((b) => (
               <div
                 key={b.id}
-                className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6"
+                className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">{b.name}</p>
+                    <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
+                      {b.name}
+                    </p>
                     {b.nickname && (
-                      <p className="truncate text-xs text-white/40">{b.nickname}</p>
+                      <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                        {b.nickname}
+                      </p>
                     )}
-                    <p className="mt-2 font-mono text-xs text-amber-400/80">
+                    <p className="mt-2 font-mono text-xs text-amber-700 dark:text-amber-400 font-medium">
                       {b.accountNumber}
                     </p>
                   </div>
@@ -154,14 +163,27 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
                 <div className="mt-4 flex items-center gap-3">
                   <Link
                     href={`/dashboard/transfer?external=1&to=${encodeURIComponent(b.accountNumber)}`}
-                    className="text-sm font-medium text-primary-400 transition-colors hover:text-primary-300"
+                    className="group inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
                   >
-                    {t("benef.send")} &rarr;
+                    <span>{t("benef.send")}</span>
+                    <svg
+                      className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                      />
+                    </svg>
                   </Link>
                   <button
                     type="button"
                     onClick={() => setPendingDelete(b)}
-                    className="ml-auto text-xs font-medium text-white/30 transition-colors hover:text-premium-coral"
+                    className="ml-auto text-xs font-semibold text-zinc-600 dark:text-zinc-400 transition-colors hover:text-red-600 dark:hover:text-premium-coral"
                   >
                     {t("benef.delete")}
                   </button>
@@ -176,11 +198,7 @@ export function BeneficiariesClient({ beneficiaries }: BeneficiariesClientProps)
         open={pendingDelete !== null}
         title={t("benef.deleteTitle")}
         message={
-          pendingDelete
-            ? locale === "es"
-              ? `¿Eliminar a ${pendingDelete.name} de tus beneficiarios guardados?`
-              : `Remove ${pendingDelete.name} from your saved beneficiaries?`
-            : ""
+          pendingDelete ? t("benef.deleteMsg").replace("{0}", pendingDelete.name) : ""
         }
         confirmLabel={isDeleting ? t("benef.deleting") : t("benef.delete")}
         variant="danger"

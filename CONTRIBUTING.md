@@ -5,7 +5,9 @@ Thanks for helping improve Open Banking Sandbox.
 ## Before you start
 
 - Read the [README](README.md) and [SECURITY.md](SECURITY.md).
-- Keep all data synthetic; never include credentials, personal data, financial data, or private configuration.
+- This is a simulated bank. It does not move real money. Keep every fixture synthetic.
+- After `npm run db:seed`, sign in as `demo@banking.app` / `demo-password`. The peer account `alice@banking.app` uses the same password and exists so external transfers have a destination.
+- Secondary text in the dark palette is still below WCAG AA. `color-contrast` stays excluded in `e2e/a11y.e2e.ts`. Do not mark that work done in the README.
 - Open an issue first for large behavior or architecture changes.
 
 ## Development workflow
@@ -13,7 +15,7 @@ Thanks for helping improve Open Banking Sandbox.
 ```bash
 npm install
 cp .env.example .env
-npx prisma db push
+npm run db:deploy
 npm run db:seed
 npm run typecheck
 npm run lint

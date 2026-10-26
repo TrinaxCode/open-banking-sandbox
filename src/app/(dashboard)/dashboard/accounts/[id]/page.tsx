@@ -1,7 +1,8 @@
 import { getServerSession } from "next-auth";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getAccountDetailForUi } from "@/lib/queries";
 import { AccountDetailClient } from "@/components/accounts/AccountDetailClient";
 
 export default async function AccountDetailPage({
@@ -11,18 +12,9 @@ export default async function AccountDetailPage({
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+
   const { id } = await params;
-
-  const account = await prisma.account.findFirst({
-    where: { id, userId: session.user.id },
-    include: {
-      transactions: {
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
-    },
-  });
-
+  const account = await getAccountDetailForUi(session.user.id, id);
   if (!account) notFound();
 
   return <AccountDetailClient account={account} />;

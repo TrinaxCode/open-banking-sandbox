@@ -1,3 +1,17 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals", "plugin:jsx-a11y/recommended", "prettier"],
+  "plugins": ["jsx-a11y"],
+  "rules": {
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/label-has-associated-control": ["error", { "assert": "either", "depth": 3 }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "e2e/**/*.ts", "prisma/seed.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
 }

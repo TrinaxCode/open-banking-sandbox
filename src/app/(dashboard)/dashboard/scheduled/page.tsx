@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { serialize } from "@/lib/serialize";
+import { externalTransferFeeCents } from "@/lib/fees";
+import { getAccountsForUi, getScheduledForUi } from "@/lib/queries";
 import { ScheduledClient } from "./ScheduledClient";
 
 export default async function ScheduledPage() {
@@ -10,24 +10,15 @@ export default async function ScheduledPage() {
   if (!session?.user?.id) redirect("/login");
 
   const [transfers, accounts] = await Promise.all([
-    prisma.recurringTransfer.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.account.findMany({
-      where: { userId: session.user.id },
-    }),
+    getScheduledForUi(session.user.id),
+    getAccountsForUi(session.user.id),
   ]);
 
   return (
     <ScheduledClient
-      transfers={transfers.map((tr) => ({
-        ...tr,
-        createdAt: tr.createdAt.toISOString(),
-        nextRunAt: tr.nextRunAt.toISOString(),
-        lastRunAt: tr.lastRunAt ? tr.lastRunAt.toISOString() : null,
-      }))}
-      accounts={serialize(accounts)}
+      transfers={transfers}
+      accounts={accounts}
+      externalFeeCents={externalTransferFeeCents()}
     />
   );
 }

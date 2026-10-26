@@ -1,5 +1,17 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// TrinaxBank — data model
+//
+// MONEY UNITS
+// Every monetary column is an integer number of CENTS and is named accordingly
+// (`amountCents`, `balanceCents`, `feeCents`, ...). Integer arithmetic is exact,
+// so balances cannot drift the way floats do. `interestRate` is the only
+// monetary-adjacent value stored as Float because it is a percentage, not an
+// amount. Conversion helpers: src/lib/money.ts.
+//
+// VALUE SETS
+// The SQLite connector does not support Prisma `enum`, so columns such as
+// `Account.type` or `Transaction.status` are Strings. The allowed values live in
+// src/lib/domain.ts and are enforced by Zod in the service layer before every
+// write.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,25 +23,30 @@ datasource db {
 }
 
 model User {
-  id                String          @id @default(cuid())
-  email             String          @unique
+  id                String    @id @default(cuid())
+  email             String    @unique
   name              String?
   passwordHash      String
-  accountNumber     String          @unique
+  accountNumber     String    @unique
   passwordChangedAt DateTime?
-  notifyLowBalance  Boolean         @default(true)
-  notifyLargeTx     Boolean         @default(true)
-  lowBalanceThreshold Float         @default(100)
-  largeTxThreshold  Float           @default(1000)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  accounts          Account[]
-  transactions      Transaction[]
-  virtualCards      VirtualCard[]
-  beneficiaries     Beneficiary[]
-  savingsGoals      SavingsGoal[]
+
+  notifyLowBalance         Boolean @default(true)
+  notifyLargeTx            Boolean @default(true)
+  lowBalanceThresholdCents Int     @default(10000) // $100.00
+  largeTxThresholdCents    Int     @default(100000) // $1,000.00
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts           Account[]
+  transactions       Transaction[]
+  virtualCards       VirtualCard[]
+  beneficiaries      Beneficiary[]
+  savingsGoals       SavingsGoal[]
   recurringTransfers RecurringTransfer[]
-  notifications     Notification[]
+  notifications      Notification[]
+  categoryBudgets    CategoryBudget[]
+  securityLogs       SecurityLog[]
 }
 
 model Beneficiary {
@@ -41,46 +58,52 @@ model Beneficiary {
   createdAt     DateTime @default(now())
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // The compound unique also serves `where: { userId }` lookups.
   @@unique([userId, accountNumber])
 }
 
 model SavingsGoal {
-  id            String   @id @default(cuid())
-  userId        String
-  accountId     String
-  name          String
-  targetAmount  Float
-  currentAmount Float    @default(0)
-  color         String   @default("emerald")
-  deadline      DateTime?
-  achievedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  accountId          String
+  name               String
+  targetAmountCents  Int
+  currentAmountCents Int       @default(0)
+  color              String    @default("emerald")
+  deadline           DateTime?
+  achievedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account            Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model RecurringTransfer {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   userId              String
   fromAccountId       String
   targetAccountNumber String
-  amount              Float
-  frequency           String   // "daily" | "weekly" | "monthly"
+  amountCents         Int
+  frequency           String // "daily" | "weekly" | "monthly"
   description         String?
   nextRunAt           DateTime
   lastRunAt           DateTime?
-  active              Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fromAccount         Account  @relation(fields: [fromAccountId], references: [id], onDelete: Cascade)
+  active              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccount         Account   @relation(fields: [fromAccountId], references: [id], onDelete: Cascade)
+
+  // Drives the due-rules lookup in the job runner.
+  @@index([userId, active, nextRunAt])
 }
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // "low_balance" | "large_tx" | "scheduled" | "goal" | "info"
+  type      String // "low_balance" | "large_tx" | "scheduled" | "goal" | "info" | "interest" | "fee"
   title     String
   body      String
   read      Boolean  @default(false)
@@ -88,44 +111,30 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
-}
-
-// ... Account model above ...
-
-model VirtualCard {
-  id         String   @id @default(cuid())
-  userId     String
-  cardNumber String   @unique
-  cardHolder String
-  expiryDate String   // MM/YY format
-  cvv        String
-  isFrozen   Boolean  @default(false)
-  isTemporary Boolean @default(false)
-  expiresAt  DateTime?
-  maxUses    Int?
-  usageCount Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
 }
 
 model Account {
-  id            String        @id @default(cuid())
-  userId        String
-  type          String        @default("checking")
-  number        String        @unique
-  nickname      String?       // User-friendly name for the account
-  balance       Float         @default(0)
-  creditLimit   Float?        // Only for credit accounts
-  interestRate  Float?        // Annual interest rate % for credit
-  dueDate       String?       // Day of month for payment due date (e.g. "15")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions  Transaction[] @relation("account_transactions")
-  targetOfTrans Transaction[] @relation("target_account_transactions")
-  savingsGoals      SavingsGoal[]
+  id               String    @id @default(cuid())
+  userId           String
+  type             String    @default("checking") // "checking" | "savings" | "credit"
+  number           String    @unique
+  nickname         String?
+  balanceCents     Int       @default(0)
+  creditLimitCents Int? // credit accounts only
+  interestRate     Float? // annual percentage, e.g. 3.5 for 3.5% APR
+  dueDate          String? // credit accounts only, day of month as a string
+  lastInterestAt   DateTime? // last time savings/credit interest was posted
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactions       Transaction[]       @relation("account_transactions")
+  targetOfTrans      Transaction[]       @relation("target_account_transactions")
+  savingsGoals       SavingsGoal[]
   recurringTransfers RecurringTransfer[]
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -133,14 +142,81 @@ model Transaction {
   userId          String
   accountId       String?
   targetAccountId String?
-  type            String   // "deposit" | "withdrawal" | "transfer_in" | "transfer_out"
-  amount          Float
+  type            String // "deposit" | "withdrawal" | "transfer_in" | "transfer_out" | "interest" | "fee"
+  amountCents     Int
   description     String?
   reference       String?
-  category        String   @default("other") // spending category
+  category        String   @default("other")
   status          String   @default("completed") // "completed" | "pending" | "failed"
+  notes           String?
   createdAt       DateTime @default(now())
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   account         Account? @relation("account_transactions", fields: [accountId], references: [id], onDelete: SetNull)
   targetAccount   Account? @relation("target_account_transactions", fields: [targetAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([accountId, createdAt])
+}
+
+model VirtualCard {
+  id          String    @id @default(cuid())
+  userId      String
+  cardNumber  String    @unique
+  cardHolder  String
+  expiryDate  String // MM/YY
+  cvv         String
+  isFrozen    Boolean   @default(false)
+  isTemporary Boolean   @default(false)
+  expiresAt   DateTime?
+  maxUses     Int?
+  usageCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Rate limit counters for the optional database-backed store.
+model RateLimitEntry {
+  key       String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+}
+
+/// Single-row-per-key lock used to throttle background jobs across instances.
+model JobLock {
+  key            String   @id
+  lastRunAt      DateTime @default(now())
+  lastRunSummary String?
+}
+
+/// Monthly spending limit per transaction category.
+model CategoryBudget {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String   // "food" | "shopping" | "bills" | "transport" | "entertainment" | "health" | "travel" | "other"
+  amountCents Int      // monthly spending limit in cents
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
+}
+
+/// Audit log for account and security activity.
+model SecurityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // "login" | "password_change" | "account_created" | "card_frozen" | "card_unfrozen" | "transfer" | "budget_set"
+  details   String?
+  ipAddress String?  @default("127.0.0.1")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

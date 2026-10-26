@@ -13,7 +13,5 @@ export default async function NewAccountPage() {
     select: { type: true },
   });
 
-  return (
-    <NewAccountPageClient usedTypes={existingTypes.map((a) => a.type)} />
-  );
+  return <NewAccountPageClient usedTypes={existingTypes.map((a) => a.type)} />;
 }

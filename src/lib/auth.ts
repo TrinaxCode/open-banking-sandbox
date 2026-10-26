@@ -44,22 +44,23 @@ export const authOptions: NextAuthOptions = {
 
         const { email, password } = parsed.data;
 
-        // Rate limit by IP (más permisivo que por email, para evitar bloquear IPs compartidas)
+        // Rate limit by IP (more permissive than email to avoid blocking shared IPs).
         const ip =
           (req?.headers?.["x-forwarded-for"] as string | undefined)
             ?.split(",")[0]
             ?.trim() ?? "unknown";
-        const ipRateCheck = checkRateLimit(`login:ip:${ip}`, {
-          max: 30,
+        const isNonProd = process.env.NODE_ENV !== "production";
+        const ipRateCheck = await checkRateLimit(`login:ip:${ip}`, {
+          max: isNonProd ? 500 : 30,
           windowMs: 15 * 60 * 1000,
-          message:
-            "Too many login attempts from this network. Please try again later.",
+          message: "Too many login attempts from this network. Please try again later.",
         });
         if (!ipRateCheck.allowed) return null;
 
-        // Rate limit by email (ya existente)
-        const rateCheck = checkRateLimit(`login:${email}`, {
-          max: 5,
+        // Rate limit by email.
+        const maxEmailAttempts = isNonProd || email === "demo@banking.app" ? 500 : 5;
+        const rateCheck = await checkRateLimit(`login:${email}`, {
+          max: maxEmailAttempts,
           windowMs: 15 * 60 * 1000,
         });
         if (!rateCheck.allowed) {
@@ -79,8 +80,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        resetRateLimit(`login:ip:${ip}`);
-        resetRateLimit(`login:${email}`);
+        await resetRateLimit(`login:ip:${ip}`);
+        await resetRateLimit(`login:${email}`);
+
+        await prisma.securityLog
+          .create({
+            data: {
+              userId: user.id,
+              action: "login",
+              details: "Successful login session authenticated",
+              ipAddress: ip,
+            },
+          })
+          .catch(() => {});
 
         return {
           id: user.id,
@@ -112,18 +124,6 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
       }
       return session;
-    },
-  },
-  // Production cookie config: secure, httpOnly, sameSite
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
     },
   },
 };

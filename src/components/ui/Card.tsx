@@ -5,9 +5,10 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: "glass-card",
-  highlight: "glass-card border-primary-500/20 shadow-glow",
-  glass: "glass-card bg-white/[0.01]",
+  default: "glass-card bg-white/90 dark:bg-white/[0.03]",
+  highlight:
+    "glass-card bg-white/90 dark:bg-white/[0.03] border-primary-500/20 shadow-glow",
+  glass: "glass-card bg-white/60 dark:bg-white/[0.01]",
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(

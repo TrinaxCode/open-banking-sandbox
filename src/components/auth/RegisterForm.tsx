@@ -55,7 +55,7 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="animate-slide-down rounded-xl bg-premium-coral/10 border border-premium-coral/20 px-4 py-3 text-sm font-medium text-premium-coral">
+        <div className="animate-slide-down rounded-xl bg-premium-coral/10 border border-premium-coral/20 px-4 py-3 text-sm font-medium text-red-700 dark:text-premium-coral">
           {error}
         </div>
       )}
@@ -76,7 +76,7 @@ export function RegisterForm() {
           name="email"
           type="email"
           label={t("auth.email")}
-          placeholder="you@example.com"
+          placeholder="name@example.com"
           autoComplete="email"
           required
         />

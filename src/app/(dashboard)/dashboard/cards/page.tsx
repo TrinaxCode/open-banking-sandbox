@@ -1,19 +1,17 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getAccountsForUi, getCardsForUi } from "@/lib/queries";
 import { CardsPageClient } from "./CardsPageClient";
 
 export default async function CardsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const cards = await prisma.virtualCard.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const [cards, accounts] = await Promise.all([
+    getCardsForUi(session.user.id),
+    getAccountsForUi(session.user.id),
+  ]);
 
-  return (
-    <CardsPageClient cards={JSON.parse(JSON.stringify(cards))} />
-  );
+  return <CardsPageClient cards={cards} accounts={accounts} />;
 }

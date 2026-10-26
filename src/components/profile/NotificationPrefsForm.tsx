@@ -42,15 +42,17 @@ export function NotificationPrefsForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6">
+    <form onSubmit={handleSubmit} className="space-y-4 glass-card p-6">
       {saved && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-700 dark:text-emerald-400">
           {t("profile.updatedSuccess")}
         </div>
       )}
 
       <label className="flex items-center justify-between gap-4">
-        <span className="text-sm text-white/70">{t("notif.prefLowBalance")}</span>
+        <span className="text-sm text-zinc-700 dark:text-zinc-200 font-medium">
+          {t("notif.prefLowBalance")}
+        </span>
         <input
           type="checkbox"
           checked={lowBalance}
@@ -69,7 +71,9 @@ export function NotificationPrefsForm({
       />
 
       <label className="flex items-center justify-between gap-4 pt-2">
-        <span className="text-sm text-white/70">{t("notif.prefLargeTx")}</span>
+        <span className="text-sm text-zinc-700 dark:text-zinc-200 font-medium">
+          {t("notif.prefLargeTx")}
+        </span>
         <input
           type="checkbox"
           checked={largeTx}

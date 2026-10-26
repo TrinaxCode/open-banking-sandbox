@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Dashboard screenshot placeholder</title>
-  <desc id="desc">Replace this placeholder with a dashboard screenshot before publishing promotional media.</desc>
-  <rect width="1200" height="630" fill="#0a0a0a"/>
-  <rect x="80" y="80" width="1040" height="470" rx="24" fill="#171717" stroke="#f59e0b" stroke-opacity=".5"/>
-  <text x="600" y="285" fill="#f59e0b" font-family="Arial, sans-serif" font-size="42" text-anchor="middle">Dashboard screenshot placeholder</text>
-  <text x="600" y="345" fill="#d4d4d4" font-family="Arial, sans-serif" font-size="24" text-anchor="middle">Open Banking Sandbox · synthetic data only</text>
-</svg>

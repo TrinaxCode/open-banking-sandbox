@@ -1,66 +1,68 @@
 /**
- * Money utilities — single source of truth for currency handling.
+ * Money utilities — cents-first.
  *
- * Balances and amounts are stored as `Float` in SQLite, which is prone to
- * IEEE-754 drift (0.1 + 0.2 !== 0.3). To avoid that drift accumulating in
- * account balances, every monetary value that we WRITE to the database is
- * first normalized to 2 decimal places with integer-cent rounding.
+ * Every monetary column in the database is an integer number of CENTS, so all
+ * arithmetic server-side is exact integer arithmetic: no IEEE-754 drift can
+ * accumulate in a balance and `balance >= amount` comparisons are unambiguous.
  *
- * Rule of thumb:
- *   - Round any amount with `roundMoney()` before persisting or comparing.
- *   - Use `toCents()` when you need exact integer arithmetic.
- *   - Use `formatMoney()` for display.
+ * There are exactly two units in the codebase and one place they meet:
+ *   - Cents: database, services, jobs and the public API (`*Cents` fields).
+ *   - Decimal currency units (dollars): React Client Components.
+ * `src/lib/serialize.ts` converts cents → decimals at the page boundary, so
+ * components never see cents and services never see dollars.
  */
 
-/** Round a monetary value to 2 decimal places using integer-cent rounding. */
-export function roundMoney(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  // Add a tiny epsilon before rounding to counter representation error
-  // (e.g. 1.005 -> 100.49999 -> would round down without the nudge).
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
+import { CURRENCY, DEFAULT_LOCALE } from "@/lib/domain";
 
-/** Convert a monetary value to an integer number of cents. */
+/** Largest amount a single operation may move: $9,999,999.99. */
+export const MAX_TRANSACTION_CENTS = 999_999_999;
+
+/** Convert a decimal currency value to integer cents (rounds to nearest cent). */
 export function toCents(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  // The epsilon nudges values like 1.005 (stored as 1.00499999999) upward so
+  // they round to the cent a human would expect.
   return Math.round((value + Number.EPSILON) * 100);
 }
 
 /** Convert integer cents back to a decimal currency value. */
 export function fromCents(cents: number): number {
+  if (!Number.isFinite(cents)) return 0;
   return Math.round(cents) / 100;
 }
 
-/** Add monetary values without floating drift (returns rounded result). */
-export function addMoney(...values: number[]): number {
-  return fromCents(values.reduce((sum, v) => sum + toCents(v), 0));
+/** Exact difference of two cent values. */
+export function subCents(a: number, b: number): number {
+  return Math.round(a) - Math.round(b);
 }
 
-/** Subtract `b` from `a` without floating drift (returns rounded result). */
-export function subtractMoney(a: number, b: number): number {
-  return fromCents(toCents(a) - toCents(b));
+/** True when a cent value is zero (tolerates a non-integer passed in). */
+export function isZeroCents(cents: number): boolean {
+  return Math.round(cents) === 0;
 }
 
-/** Sum a list of monetary values without floating drift. */
-export function sumMoney(values: number[]): number {
-  return fromCents(values.reduce((sum, v) => sum + toCents(v), 0));
+/** Format a cent value as a localized currency string (default USD). */
+export function formatCents(
+  cents: number,
+  currency = CURRENCY,
+  locale = DEFAULT_LOCALE,
+): string {
+  return formatMoney(fromCents(cents), currency, locale);
 }
 
 /**
- * Treat a balance as effectively zero when it is within half a cent of 0.
- * Guards against `balance !== 0` failing due to float dust.
+ * Format a DECIMAL currency value (the UI side of the boundary).
+ * Services should use `formatCents` instead.
  */
-export function isEffectivelyZero(value: number): boolean {
-  return Math.abs(value) < 0.005;
-}
-
-/** Format a monetary value as a localized currency string (default USD). */
 export function formatMoney(
   value: number,
-  currency = "USD",
-  locale = "en-US",
+  currency = CURRENCY,
+  locale = DEFAULT_LOCALE,
+  options: { signDisplay?: "auto" | "always" | "never" } = {},
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-  }).format(roundMoney(value));
+    ...(options.signDisplay ? { signDisplay: options.signDisplay } : {}),
+  }).format(Number.isFinite(value) ? value : 0);
 }

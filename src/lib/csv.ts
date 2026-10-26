@@ -1,4 +1,19 @@
-import type { Transaction } from "@prisma/client";
+/**
+ * CSV export for transaction history.
+ *
+ * Rows are unit-neutral: callers pass DECIMAL amounts (the UI side of the
+ * money boundary), so this module never needs to know about cents.
+ */
+
+export interface TransactionCsvRow {
+  createdAt: Date | string;
+  type: string;
+  category: string;
+  description?: string | null;
+  reference?: string | null;
+  amount: number;
+  status: string;
+}
 
 /** Escape a value for safe inclusion in a CSV cell. */
 function csvCell(value: unknown): string {
@@ -10,7 +25,7 @@ function csvCell(value: unknown): string {
 }
 
 /** Build a CSV string from a list of transactions. */
-export function transactionsToCsv(transactions: Transaction[]): string {
+export function transactionsToCsv(transactions: TransactionCsvRow[]): string {
   const header = [
     "Date",
     "Type",
@@ -32,16 +47,9 @@ export function transactionsToCsv(transactions: Transaction[]): string {
   return [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\n");
 }
 
-/**
- * Trigger a client-side download of the transactions as a CSV file.
- * No-op on the server.
- */
-export function exportTransactionsCsv(
-  transactions: Transaction[],
-  filename = "transactions.csv",
-): void {
+/** Trigger a client-side download of a CSV string. No-op on the server. */
+export function downloadCsv(csv: string, filename = "transactions.csv"): void {
   if (typeof window === "undefined") return;
-  const csv = transactionsToCsv(transactions);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

@@ -10,7 +10,7 @@ export function GitHubFooter() {
     >
       {/* Animated GitHub logo */}
       <svg
-        className="h-5 w-5 text-white/30 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110 group-hover:text-white/80"
+        className="h-5 w-5 text-zinc-600 dark:text-zinc-400 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110 group-hover:text-zinc-900 dark:group-hover:text-white"
         fill="currentColor"
         viewBox="0 0 24 24"
       >
@@ -21,7 +21,7 @@ export function GitHubFooter() {
         />
       </svg>
       {/* @TrinaxCode — turns gold on hover */}
-      <span className="text-sm font-semibold text-white/30 transition-all duration-300 group-hover:text-primary-400">
+      <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 transition-all duration-300 group-hover:text-primary-700 dark:group-hover:text-primary-400">
         @TrinaxCode
       </span>
     </a>

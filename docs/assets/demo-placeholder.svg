@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Demo GIF placeholder</title>
-  <desc id="desc">Replace this placeholder with a short product GIF when a public demo capture is available.</desc>
-  <rect width="1200" height="630" fill="#0a0a0a"/>
-  <circle cx="600" cy="285" r="72" fill="#f59e0b"/>
-  <path d="M580 245 L580 325 L650 285 Z" fill="#0a0a0a"/>
-  <text x="600" y="430" fill="#d4d4d4" font-family="Arial, sans-serif" font-size="30" text-anchor="middle">Demo GIF placeholder</text>
-</svg>

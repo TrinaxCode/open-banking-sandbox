@@ -39,15 +39,15 @@ export function ProfileForm({ name }: ProfileFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6">
+    <div className="glass-card p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="animate-slide-down rounded-xl bg-premium-coral/10 border border-premium-coral/20 px-4 py-3 text-sm font-medium text-premium-coral">
+          <div className="animate-slide-down rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm font-medium text-red-700 dark:text-premium-coral">
             {error}
           </div>
         )}
         {success && (
-          <div className="animate-slide-down rounded-xl bg-premium-green/10 border border-premium-green/20 px-4 py-3 text-sm font-medium text-premium-green">
+          <div className="animate-slide-down rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-premium-green">
             {t("profile.updatedSuccess")}
           </div>
         )}

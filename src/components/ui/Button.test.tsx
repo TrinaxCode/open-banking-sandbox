@@ -44,7 +44,7 @@ describe("Button", () => {
   it("should apply outline variant styles", () => {
     render(<Button variant="outline">Outline</Button>);
     const button = screen.getByRole("button");
-      expect(button.className).toContain("border-white/");
+    expect(button.className).toContain("border-white/");
   });
 
   it("should apply ghost variant styles", () => {
@@ -67,7 +67,11 @@ describe("Button", () => {
   it("should not call onClick when disabled", async () => {
     const onClick = vi.fn();
     const user = userEvent.setup();
-    render(<Button disabled onClick={onClick}>Disabled</Button>);
+    render(
+      <Button disabled onClick={onClick}>
+        Disabled
+      </Button>,
+    );
     await user.click(screen.getByRole("button"));
     expect(onClick).not.toHaveBeenCalled();
   });

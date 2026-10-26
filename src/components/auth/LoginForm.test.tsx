@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
 
 function renderForm() {
   return render(
-    <LocaleProvider>
+    <LocaleProvider initialLocale="en">
       <LoginForm />
     </LocaleProvider>,
   );
@@ -36,11 +36,9 @@ describe("LoginForm", () => {
   it("should render email and password fields", () => {
     renderForm();
 
-    expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("name@example.com")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("••••••••")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /iniciar sesión/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
   });
 
   it("should show error message on failed login", async () => {
@@ -49,9 +47,9 @@ describe("LoginForm", () => {
 
     renderForm();
 
-    await user.type(screen.getByPlaceholderText("you@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "wrongpass");
-    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument();
@@ -64,9 +62,9 @@ describe("LoginForm", () => {
 
     renderForm();
 
-    await user.type(screen.getByPlaceholderText("you@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "correctpass");
-    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith("/dashboard");
@@ -80,29 +78,42 @@ describe("LoginForm", () => {
 
     renderForm();
 
-    await user.type(screen.getByPlaceholderText("you@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "test-password");
-    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/unexpected error/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/unexpected error/i)).toBeInTheDocument();
     });
   });
 
   it("should disable button while loading", async () => {
-    mockSignIn.mockImplementation(
-      () => new Promise(() => {}),
-    );
+    mockSignIn.mockImplementation(() => new Promise(() => {}));
     const user = userEvent.setup();
 
     renderForm();
 
-    await user.type(screen.getByPlaceholderText("you@example.com"), "test@example.com");
+    await user.type(screen.getByPlaceholderText("name@example.com"), "test@example.com");
     await user.type(screen.getByPlaceholderText("••••••••"), "test-password");
-    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
-    expect(screen.getByRole("button", { name: /iniciar sesión/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeDisabled();
+  });
+
+  it("should populate demo credentials on demo button click", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const demoButton = screen.getByRole("button", { name: /fill demo credentials/i });
+    expect(demoButton).toBeInTheDocument();
+    await user.click(demoButton);
+
+    const emailInput = screen.getByPlaceholderText(
+      "name@example.com",
+    ) as HTMLInputElement;
+    const passwordInput = screen.getByPlaceholderText("••••••••") as HTMLInputElement;
+
+    expect(emailInput.value).toBe("demo@banking.app");
+    expect(passwordInput.value).toBe("demo-password");
   });
 });

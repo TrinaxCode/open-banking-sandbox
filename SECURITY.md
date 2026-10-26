@@ -2,7 +2,9 @@
 
 ## Scope
 
-This project is an educational banking simulation. It must not receive real financial data, production credentials, or personal information.
+This project is an educational banking simulation. It must not receive real financial data, production credentials, or personal information. The seeded sign-in `demo@banking.app` / `demo-password` (and the peer `alice@banking.app` with the same password) is public demo data, not a secret.
+
+Secondary text in the dark palette is still below WCAG AA contrast. The accessibility suite excludes `color-contrast` on purpose. That is a known design limit, not a vulnerability to report.
 
 ## Supported versions
 

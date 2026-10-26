@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -68,7 +69,7 @@ const config: Config = {
         "slide-up-sm": "slideUpSm 0.3s ease-out",
         "slide-down": "slideDown 0.3s ease-out",
         "scale-in": "scaleIn 0.25s ease-out",
-        "float": "float 3s ease-in-out infinite",
+        float: "float 3s ease-in-out infinite",
         "pulse-soft": "pulseSoft 2s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
         "spin-slow": "spin 3s linear infinite",

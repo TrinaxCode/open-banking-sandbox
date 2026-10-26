@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteAccount } from "@/lib/actions";
 import { useT } from "@/components/ui/LanguageSwitcher";
+import { accountTypeKey } from "@/lib/i18n/labels";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 interface DeleteAccountButtonProps {
@@ -12,7 +13,11 @@ interface DeleteAccountButtonProps {
   hasBalance: boolean;
 }
 
-export function DeleteAccountButton({ accountId, accountType, hasBalance }: DeleteAccountButtonProps) {
+export function DeleteAccountButton({
+  accountId,
+  accountType,
+  hasBalance,
+}: DeleteAccountButtonProps) {
   const router = useRouter();
   const { t } = useT();
   const [loading, setLoading] = useState(false);
@@ -49,7 +54,7 @@ export function DeleteAccountButton({ accountId, accountType, hasBalance }: Dele
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="rounded-lg px-4 py-2 text-[11px] font-semibold text-white/15 hover:text-red-400 hover:bg-red-500/5 transition-all disabled:opacity-40"
+        className="rounded-lg px-4 py-2 text-[11px] font-semibold text-zinc-600 hover:text-red-600 hover:bg-red-500/10 dark:text-zinc-400 dark:hover:text-red-400 dark:hover:bg-red-500/5 transition-all disabled:opacity-40"
       >
         {loading ? t("common.deleting") : t("common.deleteAccount")}
       </button>
@@ -67,7 +72,10 @@ export function DeleteAccountButton({ accountId, accountType, hasBalance }: Dele
       <ConfirmModal
         open={showModal && !infoMsg}
         title={t("common.deleteAccount")}
-        message={`Delete this ${accountType} account permanently? This cannot be undone.`}
+        message={t("deleteAccount.confirmMsg").replace(
+          "{0}",
+          t(accountTypeKey(accountType)),
+        )}
         confirmLabel={t("common.deleteAccount")}
         cancelLabel={t("common.cancel")}
         variant="danger"

@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+build
+coverage
+test-results
+playwright-report
+package-lock.json
+prisma/migrations
+.env
+.env.*
+public
+docs/assets
+trinax bank logo
+CHANGELOG.md

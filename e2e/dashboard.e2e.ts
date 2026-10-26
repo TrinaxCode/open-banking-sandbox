@@ -9,6 +9,7 @@ test.describe("Dashboard", () => {
     await page.locator('input[name="password"]').fill("demo-password");
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL("/dashboard");
+    await expect(page.getByRole("heading", { name: /Welcome back/ })).toBeVisible();
   });
 
   test("should display dashboard with balance card", async ({ page }) => {
@@ -17,13 +18,20 @@ test.describe("Dashboard", () => {
   });
 
   test("should display accounts section", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
-    await expect(page.getByText("Checking", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Savings", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Accounts", exact: true }),
+    ).toBeVisible();
+    // The demo accounts are seeded with nicknames, which take precedence over
+    // the type label.
+    await expect(page.getByText("Everyday").first()).toBeVisible();
+    await expect(page.getByText("Rainy day").first()).toBeVisible();
+    await expect(page.getByText("CHK-001001").first()).toBeVisible();
   });
 
   test("should display recent transactions", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Transactions", exact: true }),
+    ).toBeVisible();
     // Should have transaction rows
     const rows = page.locator("table tbody tr");
     await expect(rows.first()).toBeVisible();
