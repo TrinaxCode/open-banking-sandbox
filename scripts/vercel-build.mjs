@@ -28,6 +28,7 @@ if (!usePostgres) {
 
   writeFileSync(schemaPath, postgresSchema);
   try {
+    run("npx", ["prisma", "db", "push", "--skip-generate"]);
     run("npx", ["prisma", "generate"]);
     run("npx", ["next", "build"]);
   } finally {
